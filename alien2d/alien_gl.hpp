@@ -182,7 +182,7 @@ class GLContext {
     HGLRC renderingContext = wglCreateContext(m_DeviceContext);
 #endif
 
-    // Make current context OpenGL rendering context for the device
+    // Make current context OpenGL rendering context for the m_Device
     wglMakeCurrent(m_DeviceContext, renderingContext);
 
     // Load gl extension function for the context creation

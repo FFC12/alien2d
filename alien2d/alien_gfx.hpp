@@ -29,16 +29,86 @@ THE SOFTWARE.
 #define ALIEN_HPP
 #endif
 #endif
+#ifdef ALIEN_DX11
 #include "alien_dx11.hpp"
+#else
 #include "alien_gl.hpp"
+#endif
+
+#include "common.hpp"
 
 namespace Alien {
-  struct Renderer {
-    Renderer() = default;
+struct IRenderable {
+  IRenderable() = default;
 
-   private:
-  };
-}
+  virtual void on_init() = 0;
+  virtual void on_draw() = 0;
+  virtual void on_release() = 0;
+};
+
+struct RenderQueueInfo {
+  IRenderable* sprite;
+  u32 priority;
+  u32 zOrder;
+};
+
+struct Renderer {
+  static Renderer& instance() {
+    static Renderer ins;
+    return ins;
+  }
+
+  ~Renderer() {
+    for(auto &i: m_RenderQueue) {
+      i.sprite->on_release();
+    }
+  }
+
+  void init() {
+    for(auto &i: m_RenderQueue) {
+      i.sprite->on_init();
+    }
+  }
+
+  void draw() {
+    for(auto &i: m_RenderQueue) {
+      i.sprite->on_draw();
+    }
+  }
+
+#ifdef ALIEN_DX11
+  void set_context(Alien::DX11Context* ctx) {
+    Context = ctx;
+  }
+#else
+  void set_context(Alien::GLContext* ctx) {
+    m_Context = ctx;
+  }
+#endif
+
+  void push_queue(RenderQueueInfo queueInfo) {
+    m_RenderQueue.push_back(queueInfo);
+  }
+
+#ifndef ALIEN_DX11
+  static Alien::GLContext* GetContext() { return Context; }
+#else
+  static Alien::DX11Context* GetContext() { return Context; }
+#endif
+ private:
+  Renderer() = default;
+
+#ifndef ALIEN_DX11
+  static inline Alien::GLContext* Context {nullptr};
+#else
+  static inline Alien::DX11Context* Context {nullptr};
+#endif
+
+  std::vector<RenderQueueInfo> m_RenderQueue;
+};
+
+
+}  // namespace Alien
 
 #ifndef _WIN32
 #ifndef ALIEN_HPP

@@ -1,30 +1,36 @@
+#define ALIEN_DX11
+#include <alien_sprite.hpp>
 #include <alien_window.hpp>
-#include <iostream>
 
 int main() {
   Alien::App app("Alien Test");
+  auto ctx = app.get_context();
 
-  // DirectX 11 - Usage Example (Those will be wrapped by Renderer)
-  ID3DBlob *vertShaderBlob, *fragShaderBlob;
-  ID3D11VertexShader *vertShader;
-  ID3D11PixelShader *fragShader;
-  std::unique_ptr<Extra::BufferDescriptor> bufferDesc;
+  Alien::Renderer renderer = Alien::Renderer::instance();
+  renderer.set_context(&ctx);
+
+  Alien::Sprite sprite;
+  renderer.push_queue(Alien::RenderQueueInfo{
+      .sprite = dynamic_cast<Alien::IRenderable *>(&sprite),
+      .priority = 0,
+      .zOrder = 0});
+
+  app.add_resize_event([&](auto s) {
+    auto sc = (Alien::EventResized *)s.get();
+    auto h = sc->height;
+    auto w = sc->width;
+    std::cout << w << " : " << h << std::endl;
+  });
+
   app.add_event_queue(
       [&](Alien::AppState &state) {
-        app.m_Context.physicalDevice.compile_vertex_shader(
-            L"shaders.hlsl", &vertShaderBlob, &vertShader);
-        app.m_Context.physicalDevice.compile_pixel_shader(
-            L"shaders.hlsl", &fragShaderBlob, &fragShader);
-        bufferDesc = std::move(
-            app.m_Context.physicalDevice.create_buffer(vertShaderBlob));
+        renderer.init();
       },
       Alien::Queue::e_Init);
 
   app.add_event_queue(
       [&](Alien::AppState &state) {
-        app.m_Context.physicalDevice.next_frame();
-        app.m_Context.physicalDevice.draw_command(bufferDesc.get(), vertShader,
-                                                  fragShader);
+        renderer.draw();
       },
       Alien::Queue::e_Update);
 

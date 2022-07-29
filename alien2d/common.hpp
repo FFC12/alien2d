@@ -43,15 +43,18 @@ THE SOFTWARE.
 namespace Extra {
 struct BufferDescriptor {
 #if defined(_WIN32) && defined(ALIEN_DX11)
-  BufferDescriptor(ID3D11Buffer* buffer, ID3D11InputLayout* layout, u32 stride,
-                   u32 offset, u32 count)
+  BufferDescriptor(ID3D11Buffer* buffer, ID3D11Buffer* indexBuffer, ID3D11InputLayout* layout, u32 stride,
+                   u32 offset, u32 count, u32 indexCount)
       : buffer(buffer),
+        indexBuffer(indexBuffer),
         inputLayout(layout),
         stride(stride),
         offset(offset),
-        vertexCount(count) {}
+        vertexCount(count),
+        indexCount(indexCount) {}
 
   ID3D11Buffer* buffer;
+  ID3D11Buffer* indexBuffer;
   ID3D11InputLayout* inputLayout;
 #else
 #endif
@@ -59,6 +62,7 @@ struct BufferDescriptor {
   u32 vertexCount;
   u32 offset;
   u32 stride;
+  u32 indexCount;
 };
 }  // namespace Extra
 

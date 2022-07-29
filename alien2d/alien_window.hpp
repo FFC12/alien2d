@@ -81,6 +81,17 @@ namespace Alien {
 // Queue type
 enum Queue { e_Init, e_Update, e_Kill };
 
+// Keyboard events
+enum Event { e_Resize };
+
+struct IEvent {};
+
+struct EventResized : IEvent {
+  EventResized(u32 w, u32 h) : width(w), height(h) {}
+  u32 width;
+  u32 height;
+};
+
 // Basically the idea is
 // for all callbacks that has an AppState
 // parameter, the state will be shareable
@@ -119,15 +130,25 @@ class App {
     }
   }
 
+  void add_resize_event(const std::function<void(std::unique_ptr<IEvent>)> &f) {
+    InputCallbacks[e_Resize] = f;
+  }
+
+  void add_keyboard_event(const std::function<void(std::unique_ptr<IEvent>)> &f,
+                          Event e) {
+    InputCallbacks[e] = f;
+  }
+
   void update() { update_window(); }
+
+#ifndef ALIEN_DX11
+  Alien::GLContext &get_context() { return m_Context; }
+#else
+  Alien::DX11Context &get_context() { return m_Context; }
+#endif
 
   ~App() {}
 
-#ifndef ALIEN_DX11
-  Alien::GLContext m_Context;
-#else
-  Alien::DX11Context m_Context;
-#endif
  private:
   bool init(const char *windowName, u32 w, u32 h) {
 #ifdef _WIN32
@@ -159,7 +180,7 @@ class App {
       exit(error);
     }
 
-    // Get device context
+    // Get m_Device context
     m_DeviceContext = GetDC(m_WindowHandle);
 
     // Show the window
@@ -192,6 +213,15 @@ class App {
         DispatchMessage(&msg);
       }
 
+      // When the window resized, recreate our framebuffer
+      if (WindowDidResize) {
+#ifdef ALIEN_DX11
+        m_Context.physicalDevice.resize_and_set_framebuffer();
+#endif
+
+        WindowDidResize = false;
+      }
+
       for (auto &func : m_UpdateQueue) {
         func(m_AppState);
       }
@@ -217,6 +247,16 @@ class App {
         } else
           PostQuitMessage(0);
         break;
+      case WM_SIZE: {
+        WindowDidResize = true;
+        if (InputCallbacks.count(Event::e_Resize) > 0) {
+          auto w = LOWORD(param_l);
+          auto h = HIWORD(param_l);
+          auto resizedEventPtr = std::make_unique<EventResized>(w, h);
+          InputCallbacks[Event::e_Resize](std::move(resizedEventPtr));
+        }
+        break;
+      }
     }
 
     return DefWindowProc(window_handle, message, param_w, param_l);
@@ -229,6 +269,12 @@ class App {
   HDC m_DeviceContext;
 #endif
 
+#ifndef ALIEN_DX11
+  Alien::GLContext m_Context;
+#else
+  Alien::DX11Context m_Context;
+#endif
+
   u32 m_Width{800};
   u32 m_Height{600};
   std::string m_WindowName;
@@ -239,7 +285,11 @@ class App {
   std::vector<std::function<void(AppState &)>> m_InitQueue;
   std::vector<std::function<void(AppState &)>> m_KillQueue;
 
+  static inline std::unordered_map<Event,
+                                   std::function<void(std::unique_ptr<IEvent>)>>
+      InputCallbacks;
   static inline bool ShouldQuit{false};
+  static inline bool WindowDidResize{false};
 };
 }  // namespace Alien
 

@@ -82,18 +82,20 @@ added later as well.
 #include "math.hpp"
 
 namespace Extension::DX11 {
+class App;
 struct DX11PhysicalDevice {
+  friend class App;
   explicit DX11PhysicalDevice(u32 w = 800, u32 h = 600)
       : m_Width(w), m_Height(h) {}
 
-  ~DX11PhysicalDevice() {
-    device->Release();
-    swapChain->Release();
-    deviceContext->Release();
-    renderTargetView->Release();
+  void destroy_device() {
+    m_Device->Release();
+    m_SwapChain->Release();
+    m_DeviceContext->Release();
+    m_RenderTargetView->Release();
   }
 
-  // Initialize device (retrieve windows handle and instance)
+  // Initialize m_Device (retrieve windows handle and instance)
   void init_device(HWND handle, HINSTANCE instance) {
     m_Instance = instance;
     m_WindowHandle = handle;
@@ -102,7 +104,9 @@ struct DX11PhysicalDevice {
 
   // Initialize DirectX 11 context: buffer descriptor, swap chain
   // and render target.
-  bool init_context_dx11() {
+  bool init_context_dx11(bool didEnabledDebugLayer = true) {
+
+
     assert(m_IsInitialized &&
            "Device must be initialized! Probably you called the "
            "init_context_dx11() function before the init_device() function!");
@@ -132,44 +136,65 @@ struct DX11PhysicalDevice {
     swapChainDesc.Windowed = TRUE;
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
-    // Create device instance and swapchain
+    u32 deviceFlags = 0;
+    if(didEnabledDebugLayer)
+      deviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+
+    // Create m_Device instance and swapchain
     hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
-                                       NULL, NULL, NULL, D3D11_SDK_VERSION,
-                                       &swapChainDesc, &swapChain, &device,
-                                       NULL, &deviceContext);
+                                       deviceFlags, NULL, NULL, D3D11_SDK_VERSION,
+                                       &swapChainDesc, &m_SwapChain, &m_Device,
+                                       NULL, &m_DeviceContext);
 
     if (FAILED(hr)) {
       return false;
     }
 
+    if(didEnabledDebugLayer) {
+      // Get the debug layer object
+      ID3D11Debug* debug = nullptr;
+      m_Device->QueryInterface(__uuidof(ID3D11Debug), (void**)&debug);
+
+      // If we got the debug layer object
+      if(debug) {
+        ID3D11InfoQueue* debugInfoQueue = nullptr;
+        if(SUCCEEDED(debug->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&debugInfoQueue))) {
+          debugInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
+          debugInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
+          debugInfoQueue->Release();
+        }
+        debug->Release();
+      }
+    }
+
     // Prepare back buffer for double buffering (DX11)
     ID3D11Texture2D* backBuffer;
-    hr =
-        swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
+    hr = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
     assert(SUCCEEDED(hr));
 
     // Create render target view for the texture
-    hr = device->CreateRenderTargetView(backBuffer, NULL, &renderTargetView);
+    hr = m_Device->CreateRenderTargetView(backBuffer, NULL, &m_RenderTargetView);
     assert(SUCCEEDED(hr));
     backBuffer->Release();
 
-    // Set device context with render target view which is basically a texture
+    // Set m_Device context with render target view which is basically a texture
     // TODO: Stencil and depth buffers will be considered later
-    deviceContext->OMSetRenderTargets(1, &renderTargetView, NULL);
+    m_DeviceContext->OMSetRenderTargets(1, &m_RenderTargetView, NULL);
 
     return true;
   }
 
   // Compile vertex shader from the path
-  bool compile_vertex_shader(LPCWSTR path, ID3DBlob** vertShaderBlob, ID3D11VertexShader** vertShader) const {
+  bool compile_vertex_shader(LPCWSTR path, ID3DBlob** vertShaderBlob,
+                             ID3D11VertexShader** vertShader) const {
     // Create Vertex Shader
     ID3DBlob* vsBlob;
     ID3D11VertexShader* vertexShader;
     {
       ID3DBlob* shaderCompileErrorsBlob;
       HRESULT hResult =
-          D3DCompileFromFile(L"shaders.hlsl", nullptr, nullptr, "vs_main", "vs_5_0", 0, 0,
-                             &vsBlob, &shaderCompileErrorsBlob);
+          D3DCompileFromFile(L"shaders.hlsl", nullptr, nullptr, "vs_main",
+                             "vs_5_0", 0, 0, &vsBlob, &shaderCompileErrorsBlob);
       if (FAILED(hResult)) {
         const char* errorString = NULL;
         if (hResult == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
@@ -184,7 +209,7 @@ struct DX11PhysicalDevice {
         return false;
       }
 
-      hResult = device->CreateVertexShader(vsBlob->GetBufferPointer(),
+      hResult = m_Device->CreateVertexShader(vsBlob->GetBufferPointer(),
                                            vsBlob->GetBufferSize(), nullptr,
                                            &vertexShader);
       assert(SUCCEEDED(hResult));
@@ -197,7 +222,8 @@ struct DX11PhysicalDevice {
   }
 
   // Compile pixel shader from the path
-  bool compile_pixel_shader(LPCWSTR path, ID3DBlob** pixelShaderBlob, ID3D11PixelShader** pixShader) const {
+  bool compile_pixel_shader(LPCWSTR path, ID3DBlob** pixelShaderBlob,
+                            ID3D11PixelShader** pixShader) const {
     // Create Pixel Shader
     ID3DBlob* psBlob;
     ID3D11PixelShader* pixelShader;
@@ -220,7 +246,7 @@ struct DX11PhysicalDevice {
         return false;
       }
 
-      hResult = device->CreatePixelShader(psBlob->GetBufferPointer(),
+      hResult = m_Device->CreatePixelShader(psBlob->GetBufferPointer(),
                                           psBlob->GetBufferSize(), nullptr,
                                           &pixelShader);
       assert(SUCCEEDED(hResult));
@@ -233,8 +259,39 @@ struct DX11PhysicalDevice {
     return true;
   }
 
+  ID3D11RenderTargetView* create_frame_buffer() {
+    ID3D11Texture2D* newFrameBuffer;
+    ID3D11RenderTargetView* newRenderTargetView;
+
+    HRESULT hResult = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                           (void**)&newFrameBuffer);
+    assert(SUCCEEDED(hResult));
+
+    hResult = m_Device->CreateRenderTargetView(newFrameBuffer, NULL,
+                                             &newRenderTargetView);
+    assert(SUCCEEDED(hResult));
+    newFrameBuffer->Release();
+
+    return newRenderTargetView;
+  }
+
+  // When buffers resized (when window resize) this will help
+  // us to resize back buffers (render target)
+  void resize_and_set_framebuffer(u32 w = 0, u32 h = 0) {
+    m_DeviceContext->OMSetRenderTargets(0, 0, 0);
+    m_RenderTargetView->Release();
+
+    // Zero-ed parameters helps us that being used client area by swap chain
+    // automatically
+    HRESULT hResult =
+        m_SwapChain->ResizeBuffers(0, w, h, DXGI_FORMAT_UNKNOWN, 0);
+    assert(SUCCEEDED(hResult));
+
+    m_RenderTargetView = create_frame_buffer();
+  }
+
   // Create buffer (position & color)
-  std::unique_ptr<Extra::BufferDescriptor> create_buffer(ID3DBlob* vs) {
+  std::unique_ptr<Extra::BufferDescriptor> create_quad_buffer(ID3DBlob* vs) {
     // Input layout creation
     ID3D11InputLayout* inputLayout;
     {
@@ -244,7 +301,7 @@ struct DX11PhysicalDevice {
           {"COL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
            D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0}};
 
-      HRESULT hResult = device->CreateInputLayout(
+      HRESULT hResult = m_Device->CreateInputLayout(
           inputElementDesc, ARRAYSIZE(inputElementDesc), vs->GetBufferPointer(),
           vs->GetBufferSize(), &inputLayout);
       assert(SUCCEEDED(hResult));
@@ -258,8 +315,10 @@ struct DX11PhysicalDevice {
     u32 offset;
     {
       f32 vertexData[] = {// x, y, r, g, b, a
-                          0.0f, 0.5f, 0.f, 1.f,   0.f,   1.f, 0.5f, -0.5f, 1.f,
-                          0.f,  0.f,  1.f, -0.5f, -0.5f, 0.f, 0.f,  1.f,   1.f};
+                          -0.5f, 0.5f,  0.f, 1.f, 0.f, 1.f,
+                          0.5f,  -0.5f, 1.f, 0.f, 0.f, 1.f,
+                          -0.5f, -0.5f, 0.f, 0.f, 1.f, 1.f,
+                              0.5f,  0.5f, 1.f, 1.f, 0.f, 1.f};
 
       stride = 6 * sizeof(f32);
       numVers = sizeof(vertexData) / stride;
@@ -272,19 +331,36 @@ struct DX11PhysicalDevice {
 
       D3D11_SUBRESOURCE_DATA vertexSubresourceData = {vertexData};
 
-      HRESULT hResult = device->CreateBuffer(&vertexBufferDesc,
+      HRESULT hResult = m_Device->CreateBuffer(&vertexBufferDesc,
                                              &vertexSubresourceData, &buffer);
       assert(SUCCEEDED(hResult));
     }
 
+    // Create index buffer
+    ID3D11Buffer* indexBuffer;
+    u32 indexData[] = {0, 1, 2, 0, 3, 1};
+    {
+      D3D11_BUFFER_DESC indexBufferDesc = {};
+      indexBufferDesc.ByteWidth = sizeof(indexData);
+      indexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+      indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+      D3D11_SUBRESOURCE_DATA indexSubresourceData = {indexData};
+
+      HRESULT hResult = m_Device->CreateBuffer(
+          &indexBufferDesc, &indexSubresourceData, &indexBuffer);
+      assert(SUCCEEDED(hResult));
+    }
+
     return std::move(std::make_unique<Extra::BufferDescriptor>(
-        buffer, inputLayout, stride, offset, numVers));
+        buffer, indexBuffer, inputLayout, stride, offset, numVers,
+        ARRAYSIZE(indexData)));
   }
 
   void next_frame() {
     // Clear buffer color
-    f32 bg[4] = {1.0f, 0.0f, 0.0f, 1.0f};
-    deviceContext->ClearRenderTargetView(renderTargetView, bg);
+    static f32 bg[4] = {1.0f, 0.0f, 0.0f, 1.0f};
+    m_DeviceContext->ClearRenderTargetView(m_RenderTargetView, bg);
 
     // Set the viewport
     static RECT winRect;
@@ -295,44 +371,53 @@ struct DX11PhysicalDevice {
                                (f32)(winRect.bottom - winRect.top),
                                0.0f,
                                1.0f};
-    deviceContext->RSSetViewports(1, &viewPort);
+    m_DeviceContext->RSSetViewports(1, &viewPort);
 
     // Currently depth and stencil buffers are omitted
-    deviceContext->OMSetRenderTargets(1, &renderTargetView, nullptr);
+    m_DeviceContext->OMSetRenderTargets(1, &m_RenderTargetView, nullptr);
   }
 
   void draw_command(Extra::BufferDescriptor* bufferDescriptor,
                     ID3D11VertexShader* vertShader,
                     ID3D11PixelShader* pixelShader) {
     // Set the topology (method that will be used while drawing elements)
-    deviceContext->IASetPrimitiveTopology(
+    m_DeviceContext->IASetPrimitiveTopology(
         D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // Set the input layout (for buffer usage)
-    deviceContext->IASetInputLayout(bufferDescriptor->inputLayout);
+    m_DeviceContext->IASetInputLayout(bufferDescriptor->inputLayout);
 
     // Set the shaders
-    deviceContext->VSSetShader(vertShader, nullptr, 0);
-    deviceContext->PSSetShader(pixelShader, nullptr, 0);
+    m_DeviceContext->VSSetShader(vertShader, nullptr, 0);
+    m_DeviceContext->PSSetShader(pixelShader, nullptr, 0);
 
     // Set the vertex buffers
-    deviceContext->IASetVertexBuffers(0, 1, &bufferDescriptor->buffer,
+    m_DeviceContext->IASetVertexBuffers(0, 1, &bufferDescriptor->buffer,
                                       &bufferDescriptor->stride,
                                       &bufferDescriptor->offset);
 
+    // Set the index buffer
+    m_DeviceContext->IASetIndexBuffer(bufferDescriptor->indexBuffer,
+                                    DXGI_FORMAT_R32_UINT, 0);
+
     // Draw call
-    deviceContext->Draw(bufferDescriptor->vertexCount, 0);
+    if (bufferDescriptor->indexCount == 0) {
+      m_DeviceContext->Draw(bufferDescriptor->vertexCount, 0);
+    } else {
+      m_DeviceContext->DrawIndexed(bufferDescriptor->indexCount, 0, 0);
+    }
 
     // Set the how to sync presentation of frame will handle
-    swapChain->Present(1, 0);
+    m_SwapChain->Present(1, 0);
   }
 
-  ID3D11Device* device = nullptr;
-  ID3D11DeviceContext* deviceContext = nullptr;
-  ID3D11RenderTargetView* renderTargetView = nullptr;
-  IDXGISwapChain* swapChain = nullptr;
 
  private:
+  ID3D11Device* m_Device = nullptr;
+  ID3D11DeviceContext* m_DeviceContext = nullptr;
+  ID3D11RenderTargetView* m_RenderTargetView = nullptr;
+  IDXGISwapChain* m_SwapChain = nullptr;
+
   u32 m_Width{800};
   u32 m_Height{600};
   HWND m_WindowHandle = nullptr;
@@ -346,6 +431,11 @@ namespace Alien {
 class DX11Context {
  public:
   DX11Context() = default;
+
+  ~DX11Context() {
+    physicalDevice.destroy_device();
+  }
+
   DX11Context(HWND handle, HINSTANCE instance, HDC context)
       : m_DeviceContext(context),
         m_WindowHandle(handle),
@@ -359,12 +449,13 @@ class DX11Context {
   }
 
   void create_context_dx11() {
-      assert(m_Initialized && "You must set context first!");
-      physicalDevice.init_device(m_WindowHandle,m_Instance);
-      physicalDevice.init_context_dx11();
+    assert(m_Initialized && "You must set context first!");
+    physicalDevice.init_device(m_WindowHandle, m_Instance);
+    physicalDevice.init_context_dx11();
   }
 
   Extension::DX11::DX11PhysicalDevice physicalDevice;
+
  private:
   HWND m_WindowHandle{nullptr};
   HINSTANCE m_Instance;
