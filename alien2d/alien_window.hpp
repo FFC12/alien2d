@@ -100,7 +100,7 @@ struct AppState {
   std::shared_ptr<void *> ptr;
 };
 
-class Renderer;
+struct Renderer;
 class App {
   friend class Renderer;
 
@@ -190,7 +190,9 @@ class App {
     m_Context.set_context(m_WindowHandle, m_Instance, m_DeviceContext);
 #endif
 #ifndef ALIEN_DX11
-    m_Context.create_context_gl();
+    if(m_Context.create_context_gl()) {
+
+    }
 #else
     m_Context.create_context_dx11();
 #endif
@@ -206,11 +208,15 @@ class App {
 #ifdef _WIN32
     MSG msg;
     while (true) {
-      if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+      if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) break;
 
         TranslateMessage(&msg);
         DispatchMessage(&msg);
+      }
+
+      for (auto &func : m_UpdateQueue) {
+        func(m_AppState);
       }
 
       // When the window resized, recreate our framebuffer
@@ -218,12 +224,7 @@ class App {
 #ifdef ALIEN_DX11
         m_Context.physicalDevice.resize_and_set_framebuffer();
 #endif
-
         WindowDidResize = false;
-      }
-
-      for (auto &func : m_UpdateQueue) {
-        func(m_AppState);
       }
 
       SwapBuffers(m_DeviceContext);

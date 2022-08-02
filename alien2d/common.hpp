@@ -32,10 +32,12 @@ THE SOFTWARE.
 
 #ifdef _WIN32
 #include <Windows.h>
+#ifdef ALIEN_DX11
 #include <d3d11.h>
 #include <d3d11shader.h>
 #include <d3dcompiler.h>
 #include <wingdi.h>
+#endif
 #endif
 
 #include <base.hpp>
@@ -43,8 +45,9 @@ THE SOFTWARE.
 namespace Extra {
 struct BufferDescriptor {
 #if defined(_WIN32) && defined(ALIEN_DX11)
-  BufferDescriptor(ID3D11Buffer* buffer, ID3D11Buffer* indexBuffer, ID3D11InputLayout* layout, u32 stride,
-                   u32 offset, u32 count, u32 indexCount)
+  BufferDescriptor(ID3D11Buffer* buffer, ID3D11Buffer* indexBuffer,
+                   ID3D11InputLayout* layout, u32 stride, u32 offset, u32 count,
+                   u32 indexCount)
       : buffer(buffer),
         indexBuffer(indexBuffer),
         inputLayout(layout),
@@ -57,6 +60,19 @@ struct BufferDescriptor {
   ID3D11Buffer* indexBuffer;
   ID3D11InputLayout* inputLayout;
 #else
+  BufferDescriptor(GLuint vao, GLuint vbo, GLuint ibo, u32 stride, u32 offset,
+                   u32 count, u32 indexCount)
+      : IBO(ibo),
+        VBO(vbo),
+        VAO(vao),
+        stride(stride),
+        offset(offset),
+        vertexCount(count),
+        indexCount(indexCount) {}
+
+  GLuint IBO;
+  GLuint VBO;
+  GLuint VAO;
 #endif
 
   u32 vertexCount;

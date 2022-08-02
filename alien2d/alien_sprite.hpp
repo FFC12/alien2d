@@ -52,6 +52,11 @@ class Sprite : public Alien::IRenderable {
     m_BufferDesc =
         std::move(Context->physicalDevice.create_quad_buffer(m_VertShaderBlob));
 #else
+    Context->compile_vertex_shader("vs.glsl", m_VertexShaderSrc, m_VertShader);
+    Context->compile_pixel_shader("fs.glsl", m_FragShaderSrc, m_FragShader);
+    Context->create_program(m_Program, m_VertShader, m_FragShader);
+
+    m_BufferDesc = std::move(Context->create_quad_buffer(m_Program));
 #endif
   }
 
@@ -61,6 +66,8 @@ class Sprite : public Alien::IRenderable {
     Context->physicalDevice.draw_command(m_BufferDesc.get(), m_VertShader,
                                          m_FragShader);
 #else
+    Context->next_frame();
+    Context->draw_command(m_BufferDesc.get(), m_Program);
 #endif
   }
 
@@ -79,6 +86,11 @@ class Sprite : public Alien::IRenderable {
 
   static inline Alien::DX11Context *Context{nullptr};
 #else
+  std::string m_VertexShaderSrc;
+  std::string m_FragShaderSrc;
+  GLuint m_VertShader;
+  GLuint m_FragShader;
+  GLuint m_Program;
 
   static inline Alien::GLContext* Context{nullptr};
 #endif

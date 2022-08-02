@@ -82,7 +82,7 @@ struct Renderer {
   }
 #else
   void set_context(Alien::GLContext* ctx) {
-    m_Context = ctx;
+    Context = ctx;
   }
 #endif
 

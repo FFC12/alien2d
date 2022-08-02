@@ -60,8 +60,6 @@ added later as well.
 #endif
 #endif
 
-#define ALIEN_DX11
-
 #ifdef _WIN32
 #ifdef ALIEN_DX11
 #pragma comment(lib, "d3d11.lib")
@@ -81,6 +79,7 @@ added later as well.
 #include "common.hpp"
 #include "math.hpp"
 
+#ifdef ALIEN_DX11
 namespace Extension::DX11 {
 class App;
 struct DX11PhysicalDevice {
@@ -105,8 +104,6 @@ struct DX11PhysicalDevice {
   // Initialize DirectX 11 context: buffer descriptor, swap chain
   // and render target.
   bool init_context_dx11(bool didEnabledDebugLayer = true) {
-
-
     assert(m_IsInitialized &&
            "Device must be initialized! Probably you called the "
            "init_context_dx11() function before the init_device() function!");
@@ -137,30 +134,32 @@ struct DX11PhysicalDevice {
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
     u32 deviceFlags = 0;
-    if(didEnabledDebugLayer)
-      deviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+    if (didEnabledDebugLayer) deviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 
     // Create m_Device instance and swapchain
-    hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
-                                       deviceFlags, NULL, NULL, D3D11_SDK_VERSION,
-                                       &swapChainDesc, &m_SwapChain, &m_Device,
-                                       NULL, &m_DeviceContext);
+    hr = D3D11CreateDeviceAndSwapChain(
+        NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, deviceFlags, NULL, NULL,
+        D3D11_SDK_VERSION, &swapChainDesc, &m_SwapChain, &m_Device, NULL,
+        &m_DeviceContext);
 
     if (FAILED(hr)) {
       return false;
     }
 
-    if(didEnabledDebugLayer) {
+    if (didEnabledDebugLayer) {
       // Get the debug layer object
       ID3D11Debug* debug = nullptr;
       m_Device->QueryInterface(__uuidof(ID3D11Debug), (void**)&debug);
 
       // If we got the debug layer object
-      if(debug) {
+      if (debug) {
         ID3D11InfoQueue* debugInfoQueue = nullptr;
-        if(SUCCEEDED(debug->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&debugInfoQueue))) {
-          debugInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
-          debugInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
+        if (SUCCEEDED(debug->QueryInterface(__uuidof(ID3D11InfoQueue),
+                                            (void**)&debugInfoQueue))) {
+          debugInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION,
+                                             true);
+          debugInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR,
+                                             true);
           debugInfoQueue->Release();
         }
         debug->Release();
@@ -169,11 +168,13 @@ struct DX11PhysicalDevice {
 
     // Prepare back buffer for double buffering (DX11)
     ID3D11Texture2D* backBuffer;
-    hr = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
+    hr = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                (void**)&backBuffer);
     assert(SUCCEEDED(hr));
 
     // Create render target view for the texture
-    hr = m_Device->CreateRenderTargetView(backBuffer, NULL, &m_RenderTargetView);
+    hr =
+        m_Device->CreateRenderTargetView(backBuffer, NULL, &m_RenderTargetView);
     assert(SUCCEEDED(hr));
     backBuffer->Release();
 
@@ -210,8 +211,8 @@ struct DX11PhysicalDevice {
       }
 
       hResult = m_Device->CreateVertexShader(vsBlob->GetBufferPointer(),
-                                           vsBlob->GetBufferSize(), nullptr,
-                                           &vertexShader);
+                                             vsBlob->GetBufferSize(), nullptr,
+                                             &vertexShader);
       assert(SUCCEEDED(hResult));
     }
 
@@ -247,8 +248,8 @@ struct DX11PhysicalDevice {
       }
 
       hResult = m_Device->CreatePixelShader(psBlob->GetBufferPointer(),
-                                          psBlob->GetBufferSize(), nullptr,
-                                          &pixelShader);
+                                            psBlob->GetBufferSize(), nullptr,
+                                            &pixelShader);
       assert(SUCCEEDED(hResult));
       psBlob->Release();
     }
@@ -257,22 +258,6 @@ struct DX11PhysicalDevice {
     *pixShader = pixelShader;
 
     return true;
-  }
-
-  ID3D11RenderTargetView* create_frame_buffer() {
-    ID3D11Texture2D* newFrameBuffer;
-    ID3D11RenderTargetView* newRenderTargetView;
-
-    HRESULT hResult = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
-                                           (void**)&newFrameBuffer);
-    assert(SUCCEEDED(hResult));
-
-    hResult = m_Device->CreateRenderTargetView(newFrameBuffer, NULL,
-                                             &newRenderTargetView);
-    assert(SUCCEEDED(hResult));
-    newFrameBuffer->Release();
-
-    return newRenderTargetView;
   }
 
   // When buffers resized (when window resize) this will help
@@ -287,7 +272,16 @@ struct DX11PhysicalDevice {
         m_SwapChain->ResizeBuffers(0, w, h, DXGI_FORMAT_UNKNOWN, 0);
     assert(SUCCEEDED(hResult));
 
-    m_RenderTargetView = create_frame_buffer();
+    ID3D11Texture2D* newFrameBuffer;
+
+    hResult = m_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                     (void**)&newFrameBuffer);
+    assert(SUCCEEDED(hResult));
+
+    hResult = m_Device->CreateRenderTargetView(newFrameBuffer, NULL,
+                                               &m_RenderTargetView);
+    assert(SUCCEEDED(hResult));
+    newFrameBuffer->Release();
   }
 
   // Create buffer (position & color)
@@ -315,10 +309,9 @@ struct DX11PhysicalDevice {
     u32 offset;
     {
       f32 vertexData[] = {// x, y, r, g, b, a
-                          -0.5f, 0.5f,  0.f, 1.f, 0.f, 1.f,
-                          0.5f,  -0.5f, 1.f, 0.f, 0.f, 1.f,
-                          -0.5f, -0.5f, 0.f, 0.f, 1.f, 1.f,
-                              0.5f,  0.5f, 1.f, 1.f, 0.f, 1.f};
+                          -0.5f, 0.5f, 0.f,  1.f,  0.f,   1.f,   0.5f, -0.5f,
+                          1.f,   0.f,  0.f,  1.f,  -0.5f, -0.5f, 0.f,  0.f,
+                          1.f,   1.f,  0.5f, 0.5f, 1.f,   1.f,   0.f,  1.f};
 
       stride = 6 * sizeof(f32);
       numVers = sizeof(vertexData) / stride;
@@ -332,7 +325,7 @@ struct DX11PhysicalDevice {
       D3D11_SUBRESOURCE_DATA vertexSubresourceData = {vertexData};
 
       HRESULT hResult = m_Device->CreateBuffer(&vertexBufferDesc,
-                                             &vertexSubresourceData, &buffer);
+                                               &vertexSubresourceData, &buffer);
       assert(SUCCEEDED(hResult));
     }
 
@@ -371,6 +364,7 @@ struct DX11PhysicalDevice {
                                (f32)(winRect.bottom - winRect.top),
                                0.0f,
                                1.0f};
+
     m_DeviceContext->RSSetViewports(1, &viewPort);
 
     // Currently depth and stencil buffers are omitted
@@ -393,12 +387,12 @@ struct DX11PhysicalDevice {
 
     // Set the vertex buffers
     m_DeviceContext->IASetVertexBuffers(0, 1, &bufferDescriptor->buffer,
-                                      &bufferDescriptor->stride,
-                                      &bufferDescriptor->offset);
+                                        &bufferDescriptor->stride,
+                                        &bufferDescriptor->offset);
 
     // Set the index buffer
     m_DeviceContext->IASetIndexBuffer(bufferDescriptor->indexBuffer,
-                                    DXGI_FORMAT_R32_UINT, 0);
+                                      DXGI_FORMAT_R32_UINT, 0);
 
     // Draw call
     if (bufferDescriptor->indexCount == 0) {
@@ -410,7 +404,6 @@ struct DX11PhysicalDevice {
     // Set the how to sync presentation of frame will handle
     m_SwapChain->Present(1, 0);
   }
-
 
  private:
   ID3D11Device* m_Device = nullptr;
@@ -433,7 +426,7 @@ class DX11Context {
   DX11Context() = default;
 
   ~DX11Context() {
-    physicalDevice.destroy_device();
+    //    physicalDevice.destroy_device();
   }
 
   DX11Context(HWND handle, HINSTANCE instance, HDC context)
@@ -458,12 +451,13 @@ class DX11Context {
 
  private:
   HWND m_WindowHandle{nullptr};
-  HINSTANCE m_Instance;
-  HDC m_DeviceContext;
+  HINSTANCE m_Instance{};
+  HDC m_DeviceContext{};
 
   bool m_Initialized{false};
 };
 }  // namespace Alien
+#endif
 
 #ifndef _WIN32
 #ifndef ALIEN_DX11_HPP

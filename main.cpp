@@ -3,7 +3,7 @@
 #include <alien_window.hpp>
 
 int main() {
-  Alien::App app("Alien Test");
+  Alien::App app("Alien Test",800,600);
   auto ctx = app.get_context();
 
   Alien::Renderer renderer = Alien::Renderer::instance();
