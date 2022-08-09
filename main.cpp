@@ -35,5 +35,6 @@ int main() {
       Alien::Queue::e_Update);
 
   app.update();
+
   return 0;
 }

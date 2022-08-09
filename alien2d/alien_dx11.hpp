@@ -103,7 +103,8 @@ struct DX11PhysicalDevice {
 
   // Initialize DirectX 11 context: buffer descriptor, swap chain
   // and render target.
-  bool init_context_dx11(bool didEnabledDebugLayer = true) {
+  bool init_context_dx11(bool isDepthAndStencilEnabled,
+                         bool didEnabledDebugLayer = true) {
     assert(m_IsInitialized &&
            "Device must be initialized! Probably you called the "
            "init_context_dx11() function before the init_device() function!");
@@ -178,11 +179,39 @@ struct DX11PhysicalDevice {
     assert(SUCCEEDED(hr));
     backBuffer->Release();
 
-    // Set m_Device context with render target view which is basically a texture
-    // TODO: Stencil and depth buffers will be considered later
-    m_DeviceContext->OMSetRenderTargets(1, &m_RenderTargetView, NULL);
+    if (isDepthAndStencilEnabled) {
+      init_depth_stencil_view();
+    }
+
+    m_IsDepthOrStencilBufferEnable = isDepthAndStencilEnabled;
+
+    // Set m_Device context with render target views which are basically a
+    // textures of render target view and depth and stencil view
+    m_DeviceContext->OMSetRenderTargets(1, &m_RenderTargetView,
+                                        m_DepthStencilView);
 
     return true;
+  }
+
+  // Creating texture from depth and stencil view for the render targets.
+  void init_depth_stencil_view() {
+    D3D11_TEXTURE2D_DESC depthStencilDesc;
+    depthStencilDesc = {0};
+    depthStencilDesc.Width = m_Width;
+    depthStencilDesc.Height = m_Height;
+    depthStencilDesc.MipLevels = 1;
+    depthStencilDesc.ArraySize = 1;
+    depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depthStencilDesc.SampleDesc.Count = 1;
+    depthStencilDesc.SampleDesc.Quality = 0;
+    depthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
+    depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    depthStencilDesc.CPUAccessFlags = 0;
+    depthStencilDesc.MiscFlags = 0;
+
+    m_Device->CreateTexture2D(&depthStencilDesc, NULL, &m_DepthStencilBuffer);
+    m_Device->CreateDepthStencilView(m_DepthStencilBuffer, NULL,
+                                     &m_DepthStencilView);
   }
 
   // Compile vertex shader from the path
@@ -351,9 +380,15 @@ struct DX11PhysicalDevice {
   }
 
   void next_frame() {
-    // Clear buffer color
+    // Clear render view
     static f32 bg[4] = {1.0f, 0.0f, 0.0f, 1.0f};
     m_DeviceContext->ClearRenderTargetView(m_RenderTargetView, bg);
+
+    // Clear depth and stencil view
+    if (m_IsDepthOrStencilBufferEnable) {
+      m_DeviceContext->ClearDepthStencilView(
+          m_DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    }
 
     // Set the viewport
     static RECT winRect;
@@ -365,9 +400,16 @@ struct DX11PhysicalDevice {
                                0.0f,
                                1.0f};
 
+    viewPort.Width = m_Width;
+    viewPort.Height = m_Height;
+
+    if (m_IsDepthOrStencilBufferEnable) {
+      viewPort.MinDepth = 0.0f;
+      viewPort.MaxDepth = 1.0f;
+    }
+
     m_DeviceContext->RSSetViewports(1, &viewPort);
 
-    // Currently depth and stencil buffers are omitted
     m_DeviceContext->OMSetRenderTargets(1, &m_RenderTargetView, nullptr);
   }
 
@@ -411,12 +453,17 @@ struct DX11PhysicalDevice {
   ID3D11RenderTargetView* m_RenderTargetView = nullptr;
   IDXGISwapChain* m_SwapChain = nullptr;
 
+  // for the depth and stencil buffer
+  ID3D11DepthStencilView* m_DepthStencilView;
+  ID3D11Texture2D* m_DepthStencilBuffer;
+
   u32 m_Width{800};
   u32 m_Height{600};
   HWND m_WindowHandle = nullptr;
   HINSTANCE m_Instance = nullptr;
 
   bool m_IsInitialized{false};
+  bool m_IsDepthOrStencilBufferEnable{false};
 };
 }  // namespace Extension::DX11
 
@@ -444,7 +491,7 @@ class DX11Context {
   void create_context_dx11() {
     assert(m_Initialized && "You must set context first!");
     physicalDevice.init_device(m_WindowHandle, m_Instance);
-    physicalDevice.init_context_dx11();
+    physicalDevice.init_context_dx11(true);
   }
 
   Extension::DX11::DX11PhysicalDevice physicalDevice;

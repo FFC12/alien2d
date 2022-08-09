@@ -106,11 +106,14 @@ class App {
 
  public:
   App(const char *wn, u32 w = 800, u32 h = 600)
-      : m_WindowName(wn), m_Width(w), m_Height(h) {
+      : m_WindowName(wn) {
     auto result = init(wn, w, h);
     if (!result) {
       std::cerr << "Something went wrong!\n";
     }
+
+    Width = w;
+    Height = h;
   }
 
   void add_event_queue(const std::function<void(AppState &)> &f, Queue t) {
@@ -172,7 +175,7 @@ class App {
     m_WindowHandle =
         CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, TEXT(m_WindowName.c_str()),
                        TEXT(m_WindowName.c_str()), WS_OVERLAPPEDWINDOW, 0, 0,
-                       m_Width, m_Height, NULL, NULL, m_Instance, NULL);
+                       Width, Height, NULL, NULL, m_Instance, NULL);
 
     if (!m_WindowHandle) {
       auto error = GetLastError();
@@ -222,7 +225,9 @@ class App {
       // When the window resized, recreate our framebuffer
       if (WindowDidResize) {
 #ifdef ALIEN_DX11
-        m_Context.physicalDevice.resize_and_set_framebuffer();
+        m_Context.physicalDevice.resize_and_set_framebuffer(Width, Height);
+#else
+        m_Context.resize_and_set_framebuffer(Width, Height);
 #endif
         WindowDidResize = false;
       }
@@ -253,6 +258,8 @@ class App {
         if (InputCallbacks.count(Event::e_Resize) > 0) {
           auto w = LOWORD(param_l);
           auto h = HIWORD(param_l);
+          Width = w;
+          Height = h;
           auto resizedEventPtr = std::make_unique<EventResized>(w, h);
           InputCallbacks[Event::e_Resize](std::move(resizedEventPtr));
         }
@@ -276,8 +283,8 @@ class App {
   Alien::DX11Context m_Context;
 #endif
 
-  u32 m_Width{800};
-  u32 m_Height{600};
+  static inline u32 Width{800};
+  static inline u32 Height{600};
   std::string m_WindowName;
 
   AppState m_AppState;

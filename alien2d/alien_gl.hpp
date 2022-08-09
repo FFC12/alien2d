@@ -136,6 +136,14 @@ PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
 PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
 PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
 PFNGLDRAWELEMENTSINSTANCEDPROC glDrawElementsInstanced;
+PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
+PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer;
+PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
+PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus;
+PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
+PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
+PFNGLRENDERBUFFERSTORAGEPROC glRenderbufferStorage;
+PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer;
 
 static void *get_proc(const char *procName) {
   void *proc = (void *)wglGetProcAddress(procName);
@@ -190,6 +198,8 @@ static void load_gl_funcs() {
       (PFNGLENABLEVERTEXATTRIBARRAYPROC)get_proc("glEnableVertexAttribArray");
   glDrawElementsInstanced =
       (PFNGLDRAWELEMENTSINSTANCEDPROC)get_proc("glDrawElementsInstanced");
+  glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)get_proc("glBindFramebuffer");
+  glBlitFramebuffer = (PFNGLBLITFRAMEBUFFERPROC)get_proc("glBlitFramebuffer");
 }
 
 // Load GL context funcs
@@ -401,6 +411,11 @@ class GLContext {
     }
 
     return true;
+  }
+
+//  https://stackoverflow.com/questions/35414826/draw-opengl-renderbuffer-to-screen
+  void resize_and_set_framebuffer(u32 w = 0, u32 h = 0) {
+
   }
 
   std::unique_ptr<Extra::BufferDescriptor> create_quad_buffer(GLuint program) {
