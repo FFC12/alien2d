@@ -1,0 +1,3 @@
+C:/Users/f_cet/CLionProjects/alien2d/debug-build/CMakeFiles/GameFramework.dir
+C:/Users/f_cet/CLionProjects/alien2d/debug-build/CMakeFiles/edit_cache.dir
+C:/Users/f_cet/CLionProjects/alien2d/debug-build/CMakeFiles/rebuild_cache.dir
