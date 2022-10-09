@@ -1,4 +1,4 @@
-#define ALIEN_DX11
+//#define ALIEN_DX11
 #include <alien_sprite.hpp>
 #include <alien_window.hpp>
 
@@ -20,6 +20,7 @@ int main() {
     auto h = sc->height;
     auto w = sc->width;
     std::cout << w << " : " << h << std::endl;
+    renderer.resize_viewport(w, h);
   });
 
   app.add_event_queue(

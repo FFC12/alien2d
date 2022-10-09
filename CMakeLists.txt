@@ -1,3 +1,10 @@
+#WARNING: Here is the thing:
+# When you don't use the Visual C++ compiler, it
+# never finds it out Dx11 shared library since `pragma`
+# is nothing to do with GCC/CLANG compilers.
+# So you have to use the Visual C++ for Dx11 for now.
+# otherwise for the OpenGL, all is fine.
+
 cmake_minimum_required(VERSION 3.0)
 project(GameFramework)
 

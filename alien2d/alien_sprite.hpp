@@ -46,14 +46,16 @@ class Sprite : public Alien::IRenderable {
   void on_init() override {
 #ifdef ALIEN_DX11
     Context->physicalDevice.compile_vertex_shader(
-        L"shaders.hlsl", &m_VertShaderBlob, &m_VertShader);
+        L"../shaders/dx/shaders.hlsl", &m_VertShaderBlob, &m_VertShader);
     Context->physicalDevice.compile_pixel_shader(
-        L"shaders.hlsl", &m_FragShaderBlob, &m_FragShader);
+        L"../shaders/dx/shaders.hlsl", &m_FragShaderBlob, &m_FragShader);
     m_BufferDesc =
         std::move(Context->physicalDevice.create_quad_buffer(m_VertShaderBlob));
 #else
-    Context->compile_vertex_shader("vs.glsl", m_VertexShaderSrc, m_VertShader);
-    Context->compile_pixel_shader("fs.glsl", m_FragShaderSrc, m_FragShader);
+    Context->compile_vertex_shader("../shaders/gl/vs.glsl", m_VertexShaderSrc,
+                                   m_VertShader);
+    Context->compile_pixel_shader("../shaders/gl/fs.glsl", m_FragShaderSrc,
+                                  m_FragShader);
     Context->create_program(m_Program, m_VertShader, m_FragShader);
 
     m_BufferDesc = std::move(Context->create_quad_buffer(m_Program));

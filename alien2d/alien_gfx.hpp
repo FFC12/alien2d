@@ -59,31 +59,35 @@ struct Renderer {
   }
 
   ~Renderer() {
-    for(auto &i: m_RenderQueue) {
+    for (auto& i : m_RenderQueue) {
       i.sprite->on_release();
     }
   }
 
   void init() {
-    for(auto &i: m_RenderQueue) {
+    for (auto& i : m_RenderQueue) {
       i.sprite->on_init();
     }
   }
 
   void draw() {
-    for(auto &i: m_RenderQueue) {
+    for (auto& i : m_RenderQueue) {
       i.sprite->on_draw();
     }
   }
 
+  void resize_viewport(u32 w, u32 h) {
 #ifdef ALIEN_DX11
-  void set_context(Alien::DX11Context* ctx) {
-    Context = ctx;
-  }
+    Context->physicalDevice.set_viewport(w,h);
 #else
-  void set_context(Alien::GLContext* ctx) {
-    Context = ctx;
+    Extension::GL::glViewport(0, 0, (i32)w, (i32)h);
+#endif
   }
+
+#ifdef ALIEN_DX11
+  void set_context(Alien::DX11Context* ctx) { Context = ctx; }
+#else
+  void set_context(Alien::GLContext* ctx) { Context = ctx; }
 #endif
 
   void push_queue(RenderQueueInfo queueInfo) {
@@ -99,14 +103,13 @@ struct Renderer {
   Renderer() = default;
 
 #ifndef ALIEN_DX11
-  static inline Alien::GLContext* Context {nullptr};
+  static inline Alien::GLContext* Context{nullptr};
 #else
-  static inline Alien::DX11Context* Context {nullptr};
+  static inline Alien::DX11Context* Context{nullptr};
 #endif
 
   std::vector<RenderQueueInfo> m_RenderQueue;
 };
-
 
 }  // namespace Alien
 

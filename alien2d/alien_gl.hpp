@@ -103,6 +103,7 @@ PFNGLGETSTRINGPROC glGetString;
 PFNGLGETERRORPROC glGetError;
 
 // -- glcorearb
+PFNGLVIEWPORTPROC glViewport;
 PFNGLCLEARPROC glClear;
 PFNGLCLEARCOLORPROC glClearColor;
 PFNGLGENBUFFERSPROC glGenBuffers;
@@ -161,6 +162,7 @@ static void *get_proc(const char *procName) {
 
 // Load GL funcs
 static void load_gl_funcs() {
+  glViewport = (PFNGLVIEWPORTPROC)get_proc("glViewport");
   glClear = (PFNGLCLEARPROC)get_proc("glClear");
   glClearColor = (PFNGLCLEARCOLORPROC)get_proc("glClearColor");
   glGenBuffers = (PFNGLGENBUFFERSPROC)get_proc("glGenBuffers");
@@ -323,10 +325,11 @@ class GLContext {
 
     auto src = (const GLchar *)shaderBuffer.c_str();
     CHECK(glShaderSource(vertShader, 1, &src, nullptr));
+    CHECK(glCompileShader(vertShader));
 
     GLint isCompiled = 0;
     glGetShaderiv(vertShader, GL_COMPILE_STATUS, &isCompiled);
-    if (vertShader == GL_FALSE) {
+    if (isCompiled == GL_FALSE) {
       GLint maxLength = 0;
       glGetShaderiv(vertShader, GL_INFO_LOG_LENGTH, &maxLength);
 
@@ -365,10 +368,11 @@ class GLContext {
 
     auto src = (const GLchar *)shaderBuffer.c_str();
     CHECK(glShaderSource(fragShader, 1, &src, nullptr));
+    CHECK(glCompileShader(fragShader));
 
     GLint isCompiled = 0;
     glGetShaderiv(fragShader, GL_COMPILE_STATUS, &isCompiled);
-    if (fragShader == GL_FALSE) {
+    if (isCompiled == GL_FALSE) {
       GLint maxLength = 0;
       glGetShaderiv(fragShader, GL_INFO_LOG_LENGTH, &maxLength);
 

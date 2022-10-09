@@ -223,8 +223,8 @@ struct DX11PhysicalDevice {
     {
       ID3DBlob* shaderCompileErrorsBlob;
       HRESULT hResult =
-          D3DCompileFromFile(L"shaders.hlsl", nullptr, nullptr, "vs_main",
-                             "vs_5_0", 0, 0, &vsBlob, &shaderCompileErrorsBlob);
+          D3DCompileFromFile(path, nullptr, nullptr, "vs_main", "vs_5_0", 0, 0,
+                             &vsBlob, &shaderCompileErrorsBlob);
       if (FAILED(hResult)) {
         const char* errorString = NULL;
         if (hResult == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
@@ -260,8 +260,8 @@ struct DX11PhysicalDevice {
     {
       ID3DBlob* shaderCompileErrorsBlob;
       HRESULT hResult =
-          D3DCompileFromFile(L"shaders.hlsl", nullptr, nullptr, "ps_main",
-                             "ps_5_0", 0, 0, &psBlob, &shaderCompileErrorsBlob);
+          D3DCompileFromFile(path, nullptr, nullptr, "ps_main", "ps_5_0", 0, 0,
+                             &psBlob, &shaderCompileErrorsBlob);
       if (FAILED(hResult)) {
         const char* errorString = NULL;
         if (hResult == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
@@ -289,8 +289,14 @@ struct DX11PhysicalDevice {
     return true;
   }
 
+  void set_viewport(u32 w, u32 h) {
+    D3D11_VIEWPORT vp = {.Width = (float)w, .Height = (float)h};
+    m_DeviceContext->RSSetViewports(1, &vp);
+  }
+
   // When buffers resized (when window resize) this will help
-  // us to resize back buffers (render target)
+  // us to resize back buffers (render target), handling the window resizing
+  // let to the user thru Resized Event.
   void resize_and_set_framebuffer(u32 w = 0, u32 h = 0) {
     m_DeviceContext->OMSetRenderTargets(0, 0, 0);
     m_RenderTargetView->Release();
@@ -309,6 +315,7 @@ struct DX11PhysicalDevice {
 
     hResult = m_Device->CreateRenderTargetView(newFrameBuffer, NULL,
                                                &m_RenderTargetView);
+
     assert(SUCCEEDED(hResult));
     newFrameBuffer->Release();
   }
@@ -399,9 +406,6 @@ struct DX11PhysicalDevice {
                                (f32)(winRect.bottom - winRect.top),
                                0.0f,
                                1.0f};
-
-    viewPort.Width = m_Width;
-    viewPort.Height = m_Height;
 
     if (m_IsDepthOrStencilBufferEnable) {
       viewPort.MinDepth = 0.0f;
