@@ -1,4 +1,4 @@
-//#define ALIEN_DX11
+#define ALIEN_DX11
 #include <alien_sprite.hpp>
 #include <alien_window.hpp>
 

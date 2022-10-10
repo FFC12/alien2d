@@ -45,17 +45,66 @@ class Sprite : public Alien::IRenderable {
  private:
   void on_init() override {
 #ifdef ALIEN_DX11
-    Context->physicalDevice.compile_vertex_shader(
-        L"../shaders/dx/shaders.hlsl", &m_VertShaderBlob, &m_VertShader);
-    Context->physicalDevice.compile_pixel_shader(
-        L"../shaders/dx/shaders.hlsl", &m_FragShaderBlob, &m_FragShader);
+    const std::string vertexSrc = R"(
+/* vertex attributes go here to input to the vertex shader */
+struct vs_in {
+    float3 position_local : POS;
+};
+
+/* outputs from vertex shader go here. can be interpolated to pixel shader */
+struct vs_out {
+    float4 position_clip : SV_POSITION; // required output of VS
+};
+
+vs_out vs_main(vs_in input) {
+  vs_out output = (vs_out)0; // zero the memory first
+  output.position_clip = float4(input.position_local, 1.0);
+  return output;
+}
+
+float4 ps_main(vs_out input) : SV_TARGET {
+  return float4( input.position_clip ); // must return an RGBA colour
+})";
+
+    // vertex and fragment shaders are combined into only one sources.
+    const std::string fragSrc = vertexSrc;
+
+    Context->physicalDevice.compile_vertex_shader(vertexSrc, &m_VertShaderBlob,
+                                                  &m_VertShader);
+    Context->physicalDevice.compile_pixel_shader(fragSrc, &m_FragShaderBlob,
+                                                 &m_FragShader);
     m_BufferDesc =
         std::move(Context->physicalDevice.create_quad_buffer(m_VertShaderBlob));
 #else
-    Context->compile_vertex_shader("../shaders/gl/vs.glsl", m_VertexShaderSrc,
-                                   m_VertShader);
-    Context->compile_pixel_shader("../shaders/gl/fs.glsl", m_FragShaderSrc,
-                                  m_FragShader);
+    const std::string vertexSrc = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos; // the position variable has attribute position 0
+layout (location = 1) in vec3 aCol;
+
+out vec4 vertexColor; // specify a color output to the fragment shader
+
+void main()
+{
+  vertexColor = vec4(aCol,1.0);
+  gl_Position = vec4(aPos, 1.0f); // see how we directly give a vec3 to vec4's constructor
+})";
+
+    const std::string fragSrc = R"(
+#version 330 core
+out vec4 FragColor;
+
+in vec4 vertexColor; // the input variable from the vertex shader (same name and same type)
+
+void main()
+{
+    FragColor = vertexColor;
+})";
+
+    m_VertexShaderSrc = vertexSrc;
+    m_FragShaderSrc = fragSrc;
+
+    Context->compile_vertex_shader(vertexSrc, m_VertexShaderSrc, m_VertShader);
+    Context->compile_pixel_shader(fragSrc, m_FragShaderSrc, m_FragShader);
     Context->create_program(m_Program, m_VertShader, m_FragShader);
 
     m_BufferDesc = std::move(Context->create_quad_buffer(m_Program));

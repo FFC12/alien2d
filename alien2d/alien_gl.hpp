@@ -304,6 +304,65 @@ class GLContext {
     return true;
   }
 
+    // get the source and compile GL vertex shader
+  bool compile_vertex_shader(const std::string& src, std::string &vertShaderSrc,
+                             GLuint &vertShader) {
+    vertShader = Extension::GL::glCreateShader(GL_VERTEX_SHADER);
+
+    auto shaderSrc = (const GLchar *)src.c_str();
+    CHECK(glShaderSource(vertShader, 1, &shaderSrc, nullptr));
+    CHECK(glCompileShader(vertShader));
+
+    GLint isCompiled = 0;
+    glGetShaderiv(vertShader, GL_COMPILE_STATUS, &isCompiled);
+    if (isCompiled == GL_FALSE) {
+      GLint maxLength = 0;
+      glGetShaderiv(vertShader, GL_INFO_LOG_LENGTH, &maxLength);
+
+      std::vector<GLchar> infoLog(maxLength);
+      glGetShaderInfoLog(vertShader, maxLength, &maxLength, &infoLog[0]);
+
+      std::string log(infoLog.begin(), infoLog.end());
+      std::cerr << log << std::endl;
+
+      glDeleteShader(vertShader);
+      return false;
+    }
+
+    vertShaderSrc = src;
+    return true;
+  }
+
+  // Get the source and compile GL frag shader
+  bool compile_pixel_shader(const std::string& src, std::string &fragShaderSrc,
+                            GLuint &fragShader) {
+    fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+
+    auto shaderSrc = (const GLchar *)src.c_str();
+    CHECK(glShaderSource(fragShader, 1, &shaderSrc, nullptr));
+    CHECK(glCompileShader(fragShader));
+
+    GLint isCompiled = 0;
+    glGetShaderiv(fragShader, GL_COMPILE_STATUS, &isCompiled);
+    if (isCompiled == GL_FALSE) {
+      GLint maxLength = 0;
+      glGetShaderiv(fragShader, GL_INFO_LOG_LENGTH, &maxLength);
+
+      std::vector<GLchar> infoLog(maxLength);
+      glGetShaderInfoLog(fragShader, maxLength, &maxLength, &infoLog[0]);
+
+      std::string log(infoLog.begin(), infoLog.end());
+      std::cerr << log << std::endl;
+
+      glDeleteShader(fragShader);
+      return false;
+    }
+
+    fragShaderSrc = src;
+    return true;
+  }
+
+
   // Read and compile GL vertex shader
   bool compile_vertex_shader(const char *path, std::string &vertShaderSrc,
                              GLuint &vertShader) {

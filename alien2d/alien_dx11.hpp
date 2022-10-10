@@ -214,6 +214,82 @@ struct DX11PhysicalDevice {
                                      &m_DepthStencilView);
   }
 
+  // Compile vertex shader from the source
+  bool compile_vertex_shader(const std::string& src, ID3DBlob** vertShaderBlob,
+                             ID3D11VertexShader** vertShader) const {
+    // Create Vertex Shader
+    ID3DBlob* vsBlob;
+    ID3D11VertexShader* vertexShader;
+    {
+      ID3DBlob* shaderCompileErrorsBlob;
+      HRESULT hResult = D3DCompile(src.c_str(), src.length(), nullptr, nullptr,
+                                   nullptr, "vs_main", "vs_5_0", 0, 0, &vsBlob,
+                                   &shaderCompileErrorsBlob);
+
+      if (FAILED(hResult)) {
+        const char* errorString = NULL;
+        if (shaderCompileErrorsBlob) {
+          errorString =
+              (const char*)shaderCompileErrorsBlob->GetBufferPointer();
+          shaderCompileErrorsBlob->Release();
+        } else {
+          errorString = "Unknown";
+        }
+        MessageBoxA(0, errorString, "Shader Compiler Error",
+                    MB_ICONERROR | MB_OK);
+        return false;
+      }
+
+      hResult = m_Device->CreateVertexShader(vsBlob->GetBufferPointer(),
+                                             vsBlob->GetBufferSize(), nullptr,
+                                             &vertexShader);
+      assert(SUCCEEDED(hResult));
+    }
+
+    *vertShaderBlob = vsBlob;
+    *vertShader = vertexShader;
+
+    return true;
+  }
+
+  // Compile pixel shader from the source
+  bool compile_pixel_shader(const std::string& src, ID3DBlob** pixelShaderBlob,
+                            ID3D11PixelShader** pixShader) const {
+    // Create Pixel Shader
+    ID3DBlob* psBlob;
+    ID3D11PixelShader* pixelShader;
+    {
+      ID3DBlob* shaderCompileErrorsBlob;
+      HRESULT hResult = D3DCompile(src.c_str(), src.length(), nullptr, nullptr,
+                                   nullptr, "ps_main", "ps_5_0", 0, 0, &psBlob,
+                                   &shaderCompileErrorsBlob);
+
+      if (FAILED(hResult)) {
+        const char* errorString = NULL;
+        if (shaderCompileErrorsBlob) {
+          errorString =
+              (const char*)shaderCompileErrorsBlob->GetBufferPointer();
+          shaderCompileErrorsBlob->Release();
+        } else {
+          errorString = "Unknown";
+        }
+        MessageBoxA(0, errorString, "Shader Compiler Error",
+                    MB_ICONERROR | MB_OK);
+        return false;
+      }
+
+      hResult = m_Device->CreatePixelShader(psBlob->GetBufferPointer(),
+                                            psBlob->GetBufferSize(), nullptr,
+                                            &pixelShader);
+      assert(SUCCEEDED(hResult));
+    }
+
+    *pixelShaderBlob = psBlob;
+    *pixShader = pixelShader;
+
+    return true;
+  }
+
   // Compile vertex shader from the path
   bool compile_vertex_shader(LPCWSTR path, ID3DBlob** vertShaderBlob,
                              ID3D11VertexShader** vertShader) const {
